@@ -9,6 +9,7 @@
 - 📂 自動掃描子資料夾（每本小說一個資料夾）
 - 🔄 直接讀取單一本小說的 JSONL 檔案（`--flat` 模式）
 - 🤖 自動偵測模式（有子資料夾自動用子資料夾模式，否則用平直模式）
+- 🚫 預設排除 `dataset_combined.jsonl` 避免重複
 - 📊 產出詳細統計報告（每本小說的樣本數、Category 分佈）
 - 💾 輸出標準 JSONL 格式
 - 🤗 支援 HuggingFace datasets 格式輸出
@@ -42,7 +43,7 @@ novel_dataset/
 ├── style_rewrite.jsonl
 ├── character_scene.jsonl
 ├── chapter_context.jsonl
-└── dataset_combined.jsonl
+└── dataset_combined.jsonl  ← 自動排除，避免重複
 ```
 
 ## 🚀 使用方法
@@ -77,7 +78,17 @@ python concat_novel_datasets.py \
   --output combined.jsonl
 ```
 
-### 產出統計報告
+### 自訂排除檔案
+
+```bash
+# 排除特定檔案（預設排除 dataset_combined.jsonl）
+python concat_novel_datasets.py \
+  --input ./datasets \
+  --output combined.jsonl \
+  --exclude file1.jsonl file2.jsonl
+```
+
+### 包含統計報告
 
 ```bash
 python concat_novel_datasets.py \
@@ -140,6 +151,7 @@ dataset = load_dataset("./hf_dataset", split="train")
 | `--report` | `-r` | 統計報告輸出路徑 | 與 output 同目錄 |
 | `--format` | `-f` | 輸出格式 (`jsonl` / `hf`) | `jsonl` |
 | `--flat` | - | 平直模式（直接讀取所有 JSONL，不掃描子資料夾） | 自動偵測 |
+| `--exclude` | `-e` | 排除的檔案名稱（預設排除 dataset_combined.jsonl） | `dataset_combined.jsonl` |
 
 ## 📝 依賴
 

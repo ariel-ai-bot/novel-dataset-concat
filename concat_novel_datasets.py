@@ -33,17 +33,21 @@ from pathlib import Path
 from datetime import datetime
 
 
-def find_jsonl_files(input_dir: str, flat_mode: bool = False) -> dict[str, list[str]]:
+def find_jsonl_files(input_dir: str, flat_mode: bool = False, exclude_files: list = None) -> dict[str, list[str]]:
     """
     找出所有 .jsonl 檔案，按來源分組。
     
     Args:
         input_dir: 輸入目錄路徑
         flat_mode: 平直模式（不掃描子資料夾，直接讀取所有 JSONL）
+        exclude_files: 要排除的檔案名稱列表
     
     Returns:
         dict: {來源名稱: [jsonl 檔案路徑列表]}
     """
+    if exclude_files is None:
+        exclude_files = []
+    
     input_path = Path(input_dir)
     if not input_path.exists():
         print(f"❌ 找不到目錄: {input_dir}")
@@ -54,9 +58,8 @@ def find_jsonl_files(input_dir: str, flat_mode: bool = False) -> dict[str, list[
     if flat_mode:
         # 平直模式：直接讀取資料夾內所有 .jsonl 檔案
         jsonl_files = sorted(input_path.glob("*.jsonl"))
-        if jsonl_files:
-            # 所有檔案視為單一來源（或按檔案分組）
-            for file_path in jsonl_files:
+        for file_path in jsonl_files:
+            if file_path.name not in exclude_files:
                 result[file_path.name] = [str(file_path)]
     else:
         # 預設模式：掃描子資料夾
@@ -65,16 +68,17 @@ def find_jsonl_files(input_dir: str, flat_mode: bool = False) -> dict[str, list[
             if subdir.is_dir():
                 jsonl_files = sorted(subdir.glob("*.jsonl"))
                 if jsonl_files:
-                    result[subdir.name] = [str(f) for f in jsonl_files]
+                    result[subdir.name] = [str(f) for f in jsonl_files if f.name not in exclude_files]
                     found_any = True
         
         # 如果沒有子資料夾但有 JSONL，自動切換到平直模式
         if not found_any:
             jsonl_files = sorted(input_path.glob("*.jsonl"))
-            if jsonl_files:
-                for file_path in jsonl_files:
+            for file_path in jsonl_files:
+                if file_path.name not in exclude_files:
                     result[file_path.name] = [str(file_path)]
-            else:
+            
+            if not result:
                 print(f"❌ 在 {input_dir} 中找不到任何 .jsonl 檔案或包含 .jsonl 的子資料夾")
                 sys.exit(1)
     
@@ -100,14 +104,14 @@ def load_jsonl(file_path: str) -> list[dict]:
     return samples
 
 
-def concat_datasets(input_dir: str, flat_mode: bool = False) -> tuple[list[dict], dict]:
+def concat_datasets(input_dir: str, flat_mode: bool = False, exclude_files: list = None) -> tuple[list[dict], dict]:
     """
     合併所有 JSONL 檔案。
     
     Returns:
         (samples, stats): 合併後的樣本列表和統計資訊
     """
-    source_files = find_jsonl_files(input_dir, flat_mode)
+    source_files = find_jsonl_files(input_dir, flat_mode, exclude_files)
     
     all_samples = []
     stats = {
@@ -297,6 +301,12 @@ def main():
         action='store_true',
         help='平直模式：直接讀取目錄內所有 .jsonl，不掃描子資料夾'
     )
+    parser.add_argument(
+        '--exclude', '-e',
+        nargs='*',
+        default=['dataset_combined.jsonl'],
+        help='排除的檔案名稱（預設排除 dataset_combined.jsonl 避免重複）'
+    )
     
     args = parser.parse_args()
     
@@ -305,10 +315,12 @@ def main():
     print(f"📂 輸入目錄: {args.input}")
     print(f"📁 輸出: {args.output}")
     print(f"📋 模式: {'平直（單一本小說）' if args.flat else '子資料夾（多本小說）'}")
+    if args.exclude:
+        print(f"🚫 排除檔案: {', '.join(args.exclude)}")
     print()
     
     # 合併資料集
-    samples, stats = concat_datasets(args.input, args.flat)
+    samples, stats = concat_datasets(args.input, args.flat, exclude_files=args.exclude)
     
     if not samples:
         print("❌ 沒有找到任何樣本")
